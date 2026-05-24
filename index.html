@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘의 운세</title>
+  <style>
+    /* 기본 초기화 및 폰트 설정 */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      background-color: #fce4ec; /* 부드러운 파스텔 핑크 배경 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 제목 스타일: 볼드체 아님(font-weight: 300), 테두리만 있고 안은 투명 */
+    .title {
+      font-size: clamp(3rem, 8vw, 5rem);
+      font-weight: 300; 
+      color: transparent;
+      -webkit-text-stroke: 2px #333; /* 글씨 테두리 */
+      margin-bottom: 40px;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+
+    /* 뽑기 기계 컨테이너 */
+    .gacha-machine {
+      position: relative;
+      width: 250px;
+      height: 350px;
+      background: #ff8a80;
+      border-radius: 40px 40px 20px 20px;
+      border: 4px solid #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+
+    .gacha-machine:hover {
+      transform: scale(1.02);
+    }
+
+    .gacha-machine:active {
+      transform: scale(0.98);
+    }
+
+    /* 유리관 부분 */
+    .glass {
+      width: 210px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 4px solid #333;
+      border-radius: 30px;
+      margin-top: 20px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-content: center;
+      gap: 10px;
+    }
+
+    /* 캡슐들 */
+    .capsule {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+    .c1 { background-color: #ffeb3b; }
+    .c2 { background-color: #03a9f4; }
+    .c3 { background-color: #8bc34a; }
+    .c4 { background-color: #e91e63; }
+    .c5 { background-color: #9c27b0; }
+
+    /* 뽑기 기계 손잡이 */
+    .handle-container {
+      margin-top: 30px;
+      width: 60px;
+      height: 60px;
+      background: #fff;
+      border: 4px solid #333;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .handle {
+      width: 10px;
+      height: 40px;
+      background: #333;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: top center;
+      transform: translate(-50%, 0) rotate(0deg);
+      border-radius: 5px;
+      transition: transform 0.3s ease;
+    }
+
+    /* 기계 애니메이션 (돌아가는 효과) */
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+
+    @keyframes mix-capsules {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(5px, -15px) rotate(45deg); }
+      50% { transform: translate(-10px, 10px) rotate(90deg); }
+      75% { transform: translate(10px, 5px) rotate(180deg); }
+      100% { transform: translate(0, 0) rotate(360deg); }
+    }
+
+    .is-playing {
+      animation: shake 0.4s infinite;
+      pointer-events: none;
+    }
+
+    .is-playing .handle {
+      transform: translate(-50%, 0) rotate(180deg);
+    }
+
+    .is-playing .capsule {
+      animation: mix-capsules 0.3s infinite;
+    }
+
+    /* 모달 (결과창) 스타일 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 100;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .result-card {
+      background: #fff;
+      padding: 40px 30px;
+      border-radius: 20px;
+      border: 4px solid #333;
+      text-align: center;
+      max-width: 90%;
+      width: 400px;
+      transform: translateY(20px);
+      transition: transform 0.3s ease;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+    }
+
+    .modal-overlay.show .result-card {
+      transform: translateY(0);
+    }
+
+    .opened-capsule {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes pop {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
+    }
+
+    .fortune-text {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      word-break: keep-all;
+    }
+
+    .close-btn {
+      background: #ff8a80;
+      border: 2px solid #333;
+      padding: 12px 30px;
+      border-radius: 30px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+      background: #ff5252;
+      color: #fff;
+    }
+
+    .instruction {
+      margin-top: 20px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="title">오늘의 운세</h1>
+
+  <!-- 뽑기 기계 -->
+  <div class="gacha-machine" id="gachaMachine">
+    <div class="glass">
+      <div class="capsule c1">⭐️</div>
+      <div class="capsule c2">🍀</div>
+      <div class="capsule c3">💖</div>
+      <div class="capsule c4">✨</div>
+      <div class="capsule c5">🎁</div>
+    </div>
+    <div class="handle-container">
+      <div class="handle"></div>
+    </div>
+  </div>
+  
+  <p class="instruction">기계를 클릭(터치)해서 운세를 뽑아보세요!</p>
+
+  <!-- 결과창 (모달) -->
+  <div class="modal-overlay" id="modal">
+    <div class="result-card">
+      <div class="opened-capsule">🎊</div>
+      <div class="fortune-text" id="fortuneResult">운세 메시지가 여기에 표시됩니다.</div>
+      <button class="close-btn" id="closeBtn">다시 뽑기</button>
+    </div>
+  </div>
+
+  <script>
+    // 긍정적인 운세 메시지 배열
+    const fortunes = [
+      "오늘은 당신에게 뜻밖의 행운이 찾아올 거예요! 🍀",
+      "당신의 따뜻한 미소가 누군가의 하루를 밝게 만들 거예요. 😊",
+      "계획했던 일들이 마법처럼 술술 풀리는 하루! ✨",
+      "새로운 도전을 시작하기에 이보다 더 완벽한 날은 없습니다. 🚀",
+      "소소하지만 확실한 기쁨이 연속해서 일어날 하루입니다. 🎁",
+      "어려움이 있어도 곧 귀인을 만나 쉽게 해결될 징조입니다! 🤝",
+      "오늘은 당신이 주인공! 자신감을 가지고 당당하게 나아가세요. 🌟",
+      "마음속으로 바라던 작은 소망이 이루어질 수 있는 날입니다. 🌈"
+    ];
+
+    const machine = document.getElementById('gachaMachine');
+    const modal = document.getElementById('modal');
+    const resultText = document.getElementById('fortuneResult');
+    const closeBtn = document.getElementById('closeBtn');
+
+    // 웹 오디오 API를 사용한 뽑기 효과음 생성
+    let audioCtx;
+    
+    function playGachaSound() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+
+      const time = audioCtx.currentTime;
+      
+      // 기계가 돌아가는(드르륵) 효과음
+      for (let i = 0; i < 20; i++) {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 400 + Math.random() * 200; // 피치 랜덤 변화
+        
+        gain.gain.setValueAtTime(0.1, time + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + i * 0.1 + 0.05);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(time + i * 0.1);
+        osc.stop(time + i * 0.1 + 0.05);
+      }
+
+      // 캡슐이 나오는 '뿅' 소리 (2초 뒤)
+      setTimeout(() => {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.5);
+      }, 2000);
+    }
+
+    // 뽑기 기계 클릭 이벤트
+    machine.addEventListener('click', () => {
+      // 애니메이션 클래스 추가
+      machine.classList.add('is-playing');
+      
+      // 사운드 재생
+      playGachaSound();
+
+      // 2초 뒤에 애니메이션 종료 및 결과 모달 띄우기
+      setTimeout(() => {
+        machine.classList.remove('is-playing');
+        
+        // 랜덤 운세 선택
+        const randomIndex = Math.floor(Math.random() * fortunes.length);
+        resultText.innerText = fortunes[randomIndex];
+        
+        // 모달 표시
+        modal.classList.add('show');
+      }, 2000);
+    });
+
+    // 모달 닫기 (다시 뽑기) 이벤트
+    closeBtn.addEventListener('click', () => {
+      modal.classList.remove('show');
+    });
+  </script>
+</body>
+</html>
